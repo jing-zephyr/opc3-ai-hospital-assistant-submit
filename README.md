@@ -15,6 +15,10 @@
 
 **URL**：https://ai-hospital-query-beijing.netlify.app
 
+**公开源码仓库**：https://github.com/jing-zephyr/opc3-ai-hospital-assistant-submit
+
+> 提交版公开仓库只包含交付所需内容（源码、本文档、测试记录与截图、AI 辅助开发说明），不含任何密钥与内部过程资料。
+
 > 该入口自提交起至少7天可用（Netlify 免费套餐支持长期运行）。
 
 ### 本地运行
