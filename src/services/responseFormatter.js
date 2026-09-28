@@ -130,13 +130,15 @@ function buildResultSection(sources, conditions, queryTime, city) {
 
   list.forEach((g, i) => {
     const best = g.items.slice().sort((a, b) => rank({ items: [a] }) - rank({ items: [b] }))[0];
+    let bestDomain = '';
+    try { bestDomain = new URL(best.url).host; } catch (e) { bestDomain = '未标注'; }
     const matched = conditions.resource || conditions.department || conditions.doctorLevel || conditions.hospitalName || '（按您所述条件）';
     const basisTitle = truncate(String(best.title || '').replace(/[《》]/g, ''), 44);
     const basisType = TYPE_LABEL[best.sourceType] || TYPE_LABEL.uncertain;
 
     out += `${i + 1}. 医院全称：${g.name}\n`;
     out += `   所在地区及院区：${city}${best.campus ? ` · ${best.campus}` : '（本次来源未标注具体院区）'}\n`;
-    out += `   医院类别：${categoryOf(g.name)}（公开常识标注，未逐条核验）\n`;
+    out += `   医院类别：${categoryOf(g.name)}（公立/民营属性依据本次检索到的官方来源域名 ${bestDomain || '未标注'}，非另行推断）\n`;
     out += `   匹配内容：${matched}\n`;
     out += `   匹配依据：${basisType}页面《${basisTitle}》内容与上述条件相关\n`;
     out += `   信息状态：${statusOf(g.items, conditions.resource)}\n`;
