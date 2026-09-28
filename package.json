@@ -1,0 +1,20 @@
+{
+  "name": "ai-hospital-query-assistant",
+  "version": "1.0.0",
+  "description": "AI便民查询就诊助手 - 第三届OPC接单吧软件与智能体赛道",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "serverless-http": "^4.0.0",
+    "uuid": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

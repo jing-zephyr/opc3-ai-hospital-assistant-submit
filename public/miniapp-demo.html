@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>小程序演示界面 · iPhone 12</title>
+  <style>
+    :root {
+      --primary: #4A7FBF;
+      --primary-light: #E8F0FA;
+      --bg: #F0F5FA;
+      --card: #FFFFFF;
+      --text: #2C3E50;
+      --text-secondary: #5D6D7E;
+      --border: #D4E3F1;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: #E8ECEF;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+      color: var(--text);
+    }
+
+    .demo-notice {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(44,62,80,0.9);
+      color: white;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 13px;
+      z-index: 100;
+      white-space: nowrap;
+    }
+
+    .iphone-frame {
+      width: 390px;
+      height: 844px;
+      background: #1a1a1a;
+      border-radius: 44px;
+      padding: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3), inset 0 0 4px rgba(255,255,255,0.1);
+      position: relative;
+    }
+    .iphone-frame::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 28px;
+      background: #1a1a1a;
+      border-radius: 0 0 18px 18px;
+      z-index: 10;
+    }
+    .screen {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      border-radius: 36px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .status-bar {
+      height: 44px;
+      background: linear-gradient(135deg, #5B8EC7, #4A7FBF);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .status-bar .time { font-size: 14px; }
+    .status-bar .icons { display: flex; gap: 5px; font-size: 12px; }
+
+    .mini-header {
+      background: linear-gradient(135deg, #5B8EC7, #4A7FBF);
+      color: white;
+      padding: 8px 16px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .mini-header .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .mini-header .avatar svg { width: 24px; height: 24px; }
+    .mini-header h2 { font-size: 15px; font-weight: 600; }
+    .mini-header .sub { font-size: 11px; opacity: 0.8; }
+
+    .mini-notice {
+      background: #FDF8F0;
+      border-bottom: 1px solid #F0E0C8;
+      padding: 8px 16px;
+      font-size: 11px;
+      color: #8B7355;
+    }
+
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 14px 8px;
+    }
+    .msg {
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+    }
+    .msg.user { align-items: flex-end; }
+    .msg .bubble {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .msg.user .bubble {
+      background: linear-gradient(135deg, #5B8EC7, #4A7FBF);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.bot .bubble {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    .msg .meta {
+      font-size: 10px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .input-bar {
+      padding: 10px 14px;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .input-bar input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 9px 14px;
+      font-size: 13px;
+      outline: none;
+      background: #FAFBFC;
+    }
+    .input-bar input:focus { border-color: var(--primary); }
+    .btn-send {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background: linear-gradient(135deg, #5B8EC7, #4A7FBF);
+      color: white;
+    }
+
+    .quick-replies {
+      display: flex;
+      gap: 6px;
+      padding: 8px 14px;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+    }
+    .quick-reply {
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 5px 12px;
+      border-radius: 14px;
+      font-size: 11px;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid var(--primary-light);
+      flex-shrink: 0;
+    }
+
+    .disclaimer {
+      padding: 8px 16px;
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-align: center;
+      background: #F5F7FA;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 450px) {
+      .iphone-frame { width: 100%; height: 100vh; border-radius: 0; padding: 0; }
+      .screen { border-radius: 0; }
+      .demo-notice { font-size: 11px; padding: 6px 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-notice">
+    本界面为微信小程序演示效果，非真实上线小程序
+  </div>
+
+  <div class="iphone-frame">
+    <div class="screen">
+      <div class="status-bar">
+        <span class="time">9:41</span>
+        <div class="icons">
+          <span>5G</span>
+          <span>&#9608;&#9608;&#9608;&#9608;</span>
+        </div>
+      </div>
+
+      <div class="mini-header">
+        <div class="avatar">
+          <svg viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="24" r="10" fill="#fff"/>
+            <path d="M20 44c0-6.6 5.4-12 12-12h0c6.6 0 12 5.4 12 12v4H20v-4z" fill="#fff"/>
+          </svg>
+        </div>
+        <div>
+          <h2>AI便民查询就诊助手</h2>
+          <div class="sub">演示模型 · StepFun V4 · 北京</div>
+        </div>
+      </div>
+
+      <div class="mini-notice">
+        本系统仅提供医院资源查询服务，不开展疾病诊断或用药指导
+      </div>
+
+      <div class="quick-replies">
+        <span class="quick-reply" onclick="sendDemo('卒中中心')">卒中中心</span>
+        <span class="quick-reply" onclick="sendDemo('抗蛇毒血清')">抗蛇毒血清</span>
+        <span class="quick-reply" onclick="sendDemo('耳鼻喉专家')">耳鼻喉专家</span>
+        <span class="quick-reply" onclick="sendDemo('协和医院')">协和医院</span>
+      </div>
+
+      <div class="chat-area" id="chatArea">
+        <div class="msg bot">
+          <div class="bubble">您好，我是小护助手。我可以帮您查询北京地区医院的科室、医生、出诊安排等信息。请告诉我您想了解的内容。</div>
+          <div class="meta">小护助手 · 刚刚</div>
+        </div>
+        <div class="msg user">
+          <div class="bubble">北京有哪些医院设有卒中中心</div>
+          <div class="meta">我 · 刚刚</div>
+        </div>
+        <div class="msg bot">
+          <div class="bubble">【查询条件】地区：北京；资源：卒中中心
+
+【查询结果】检索到3条官方来源信息：
+1. 北京天坛医院卒中中心
+   来源：医院官网（bjtth.org）
+2. 北京大学人民医院
+   来源：医院官网（pkuph.cn）
+3. 北京协和医院神经科
+   来源：医院官网（pumch.cn）
+
+【信息依据】以上信息均来自医院官方网站，具体链接可查看详情。
+
+【使用提示】医院科室设置可能变动，建议以医院官方最新公布为准。可通过北京114预约挂号平台或医院官方公众号预约。</div>
+          <div class="meta">小护助手 · 刚刚</div>
+        </div>
+      </div>
+
+      <div class="input-bar">
+        <input type="text" id="demoInput" placeholder="输入查询内容..." readonly>
+        <button class="btn-send" onclick="alert('演示界面，完整功能请访问Web版')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+
+      <div class="disclaimer">
+        本演示界面模拟微信小程序效果，非真实上线小程序。正式接入需完成小程序备案及类目审核。
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function sendDemo(text) {
+      const chat = document.getElementById('chatArea');
+      chat.innerHTML += `
+        <div class="msg user">
+          <div class="bubble">${text}</div>
+          <div class="meta">我 · 刚刚</div>
+        </div>
+        <div class="msg bot">
+          <div class="bubble">演示模式下仅展示预设回复。完整功能请访问 Web 版体验真实联网检索。</div>
+          <div class="meta">小护助手 · 刚刚</div>
+        </div>`;
+      chat.scrollTop = chat.scrollHeight;
+    }
+  </script>
+</body>
+</html>

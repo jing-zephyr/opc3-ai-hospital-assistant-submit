@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>AI便民查询就诊助手 · 北京</title>
+<style>
+  :root {
+    --blue: #4A7FBF; --blue-dark: #35619A; --blue-soft: #E8F0FA; --bg: #F0F5FA; --card: #FFFFFF;
+    --text: #2C3E50; --muted: #8E9EAB; --border: #D4E3F1; --warn: #b0503c; --err-bg: #faeee6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overflow-x: hidden; overflow-x: clip; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+  netlify-badge, #netlify-badge, .netlify-badge, [class*="netlify" i], [id*="netlify" i] { display: none !important; }
+  header { background: var(--card); border-bottom: 1px solid var(--border); padding: 8px 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .logo { font-size: 17px; font-weight: 700; color: var(--blue-dark); }
+  .logo small { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+  .sos { font-size: 12px; color: var(--warn); background: #fdeee9; border: 1px solid #f0cfc2; border-radius: 999px; padding: 4px 12px; font-weight: 600; }
+  /* 演示模型与检索服务标识：左上角常驻供核验，但刻意做小，不占主屏 */
+  .model-badge { font-size: 9.5px; line-height: 1.35; color: #9fb0bd; background: #f5f9fc; border: 1px solid #e4edf6; border-radius: 999px; padding: 2px 7px; display: inline-flex; align-items: center; gap: 4px; cursor: help; white-space: nowrap; }
+  .model-badge::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: #7cc47f; flex: 0 0 auto; }
+  .model-badge b { font-weight: 500; }
+  .spacer { flex: 1; }
+  .hbtn { font-size: 12px; color: var(--blue-dark); background: none; border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+  .hbtn:hover { background: var(--blue-soft); }
+  main { flex: 1; overflow-y: auto; padding: 16px; }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  /* 欢迎区：护士卡通形象（白色护士服+护士帽）+ 人味问候 + 话题卡 */
+  .welcome { background: linear-gradient(135deg, #eef4fb, #ddeaf7); border: 1px solid #c9dcee; border-radius: 18px; padding: 18px; margin-bottom: 14px; }
+  .w-row { display: flex; gap: 14px; align-items: center; }
+  .avatar { flex: 0 0 auto; width: 58px; height: 58px; border-radius: 50%; overflow: hidden; box-shadow: 0 2px 8px rgba(74,127,191,.18); border: 2px solid #ffffff; background: #dcebf8; }
+  .w-text h2 { font-size: 16px; color: var(--blue-dark); margin-bottom: 4px; line-height: 1.5; }
+  .w-text p { font-size: 13px; color: var(--text); line-height: 1.7; }
+  .topics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .topic { display: flex; align-items: center; gap: 10px; text-align: left; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 12px 14px; cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s; }
+  .topic:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(74,127,191,.14); border-color: #a9c6e4; }
+  .topic svg { flex: 0 0 auto; }
+  .topic b { display: block; font-size: 13.5px; color: var(--text); font-weight: 600; }
+  .topic i { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .msg { display: flex; margin-bottom: 12px; }
+  .msg.user { justify-content: flex-end; }
+  .msg.bot { flex-direction: column; align-items: flex-start; }
+  .bubble { max-width: 85%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; }
+  .msg.user .bubble { background: linear-gradient(135deg, #5B8EC7, #4A7FBF); color: #fff; border-bottom-right-radius: 6px; }
+  .msg.bot .bubble { background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 6px; }
+  .msg.error .bubble { background: var(--err-bg); border: 1px solid #eccfb9; color: var(--warn); font-size: 13px; }
+  /* 超长气泡默认折叠，点开才展开，避免把追问胶囊顶出屏幕 */
+  .bubble-fold { max-width: 85%; position: relative; }
+  .bubble-fold .bubble { max-width: 100%; }
+  .bubble-fold.collapsed .bubble { max-height: 168px; overflow: hidden; position: relative; }
+  .bubble-fold.collapsed .bubble::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 44px; background: linear-gradient(transparent, #fff); border-radius: 0 0 16px 6px; }
+  .bubble-fold { position: relative; }
+  .fold-btn { display: none; margin-top: 4px; font-size: 11.5px; color: var(--blue-dark); background: var(--blue-soft); border: 1px solid #c9dcee; border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+  .bubble-fold.collapsed .fold-btn, .bubble-fold.expanded .fold-btn { display: inline-block; }
+  /* 查询条件结构化小标签 */
+  .cond-tags { max-width: 85%; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .cond-tag { font-size: 11px; color: var(--blue-dark); background: #eef4fb; border: 1px solid #c9dcee; border-radius: 8px; padding: 2px 9px; }
+  .cond-tag b { font-weight: 600; }
+  /* 发起对话后欢迎卡收起为细条，释放首屏空间 */
+  .welcome.mini { padding: 10px 16px; }
+  .welcome.mini .w-text p, .welcome.mini .topics { display: none; }
+  .welcome.mini .avatar { width: 40px; height: 40px; }
+  .welcome.mini .w-text h2 { font-size: 14px; margin: 0; }
+  /* 医院入口卡：检索来源渲染为可点击的入口，而非纯文字列表 */
+  .entries { max-width: 85%; width: 100%; display: grid; gap: 8px; margin-top: 8px; }
+  .entry { display: block; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; cursor: pointer; text-decoration: none; color: inherit; transition: transform .15s, box-shadow .15s; }
+  .entry:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(74,127,191,.14); }
+  .e-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .e-idx { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; background: var(--blue-soft); color: var(--blue-dark); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .e-title { font-size: 13.5px; font-weight: 600; color: var(--text); line-height: 1.4; }
+  .e-snip { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 4px; }
+  .e-meta { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .tag { font-size: 10px; padding: 2px 8px; border-radius: 999px; }
+  .tag.official { background: #e8f5e9; color: #2e7d32; }
+  .tag.government { background: #e3f2fd; color: #1565c0; }
+  .tag.platform { background: #fff3e0; color: #e65100; }
+  .tag.media { background: #f3e5f5; color: #7b1fa2; }
+  .tag.other { background: #f5f5f5; color: #616161; }
+  .e-open { font-size: 11px; color: var(--blue-dark); margin-left: auto; }
+  /* 新闻类来源：字小、弱化，不抢首屏 */
+  .entry.media { opacity: .85; }
+  .entry.media .e-title { font-size: 12px; font-weight: 500; }
+  .entry.media .e-snip { font-size: 11px; }
+  .entry.media .e-meta { margin-top: 6px; }
+  /* 回复后的追问胶囊 */
+  .follow { max-width: 85%; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .fchip { font-size: 11.5px; color: var(--blue-dark); background: var(--blue-soft); border: 1px solid #c9dcee; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+  .fchip:hover { background: #d8e7f6; }
+  .sources-note { font-size: 10.5px; color: var(--muted); margin-top: 6px; }
+  .typing span { display: inline-block; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: var(--blue); animation: blink 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  .inputbar { background: var(--card); border-top: 1px solid var(--border); padding: 8px 12px 6px; }
+  .chips { max-width: 780px; margin: 0 auto 6px; display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; font-size: 11px; color: var(--blue-dark); background: #f2f7fc; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; cursor: pointer; }
+  .chip:hover { background: var(--blue-soft); }
+  .row { max-width: 780px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+  textarea { flex: 1; resize: none; height: 40px; max-height: 120px; border: 1px solid var(--border); border-radius: 16px; padding: 9px 12px; font-size: 16px; font-family: inherit; outline: none; background: #fdfefe; }
+  textarea::placeholder { font-size: 12px; color: #a8bcc9; }
+  textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(74,127,191,.14); }
+  .send { background: var(--blue); color: #fff; border: none; border-radius: 999px; padding: 0 17px; height: 40px; font-size: 14px; cursor: pointer; }
+  .send:hover { background: var(--blue-dark); }
+  .send:disabled { background: #b8cadd; cursor: not-allowed; }
+  .meta { max-width: 780px; margin: 2px auto 0; display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+  .foot { background: var(--bg); border-top: 1px solid var(--border); padding: 4px 12px; font-size: 10px; color: var(--muted); text-align: center; line-height: 1.5; }
+  /* ★ 医院入口卡：患者第一眼看到的是「能点的入口」，而不是一屏文字 */
+  .hcards { max-width: 85%; width: 100%; display: grid; gap: 10px; margin-top: 8px; }
+  .hcard { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(74,127,191,.06); }
+  .hcard-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .hcard-name { font-size: 14.5px; font-weight: 700; color: var(--blue-dark); line-height: 1.35; }
+  .pill { font-size: 10px; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .pill.pub { background: #e3f2fd; color: #1565c0; }
+  .pill.prv { background: #f3e5f5; color: #7b1fa2; }
+  .pill.st  { background: #e8f5e9; color: #2e7d32; }
+  .pill.warn{ background: #fff3e0; color: #e65100; }
+  .hcard-ev { font-size: 11.5px; color: var(--muted); line-height: 1.6; margin-top: 6px; }
+  .hcard-acts { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .act { flex: 1 1 auto; text-align: center; text-decoration: none; font-size: 12px; border-radius: 10px; padding: 7px 10px; border: 1px solid var(--border); color: var(--blue-dark); background: #f7fbff; cursor: pointer; font-family: inherit; }
+  .act.primary { background: linear-gradient(135deg,#5B8EC7,#4A7FBF); color: #fff; border-color: transparent; }
+  .act:hover { filter: brightness(1.05); }
+  /* ★ 完整的 ①②③④ 框架与来源折叠保留（评委可核验），但不占患者主视野 */
+  .detail { max-width: 85%; margin-top: 8px; }
+  .detail-btn { font-size: 11.5px; color: var(--blue-dark); background: none; border: 1px dashed #c9dcee; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+  .detail-body { display: none; margin-top: 8px; background: #fbfdff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 12px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; color: var(--text); }
+  .detail.open .detail-body { display: block; }
+  /* ★ 语音输入 */
+  .mic { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border); background: #f7fbff; color: var(--blue-dark); display: none; align-items: center; justify-content: center; cursor: pointer; touch-action: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .mic.show { display: inline-flex; }
+  .mic.on { background: linear-gradient(135deg,#5B8EC7,#4A7FBF); color: #fff; border-color: transparent; transform: scale(1.08); }
+  .vbar { max-width: 780px; margin: 0 auto 6px; display: none; align-items: center; gap: 8px; background: #fdf6e8; border: 1px solid #f0dcb4; border-radius: 12px; padding: 8px 10px; }
+  .vbar.show { display: flex; }
+  .vbar .vt { flex: 1; font-size: 13px; color: var(--text); line-height: 1.5; }
+  .vbar button { font-size: 12px; border-radius: 999px; padding: 5px 12px; border: 1px solid var(--border); background: #fff; color: var(--blue-dark); cursor: pointer; font-family: inherit; }
+  .vbar .ok { background: linear-gradient(135deg,#5B8EC7,#4A7FBF); color: #fff; border-color: transparent; }
+  .drawer-mask { position: fixed; inset: 0; background: rgba(0,0,0,.25); display: none; }
+  .drawer { position: fixed; top: 0; right: 0; width: 300px; height: 100vh; height: 100dvh; background: var(--card); box-shadow: -2px 0 12px rgba(0,0,0,.08); transform: translateX(105%); visibility: hidden; pointer-events: none; transition: transform .25s, visibility .25s; display: flex; flex-direction: column; z-index: 10; }
+  .drawer.open { transform: translateX(0); visibility: visible; pointer-events: auto; }
+  .drawer-mask.open { display: block; }
+  .drawer header { justify-content: space-between; }
+  .drawer h3 { font-size: 14px; color: var(--blue-dark); }
+  .sess-list { flex: 1; overflow-y: auto; padding: 10px; }
+  .tip-card { background: linear-gradient(135deg, #eaf2fa, #dcebf8); border: 1px solid #c9dcee; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
+  .tip-h { font-size: 12px; font-weight: 700; color: var(--blue-dark); margin-bottom: 6px; }
+  .tip-t { font-size: 12.5px; color: var(--text); line-height: 1.7; }
+  .tip-s { font-size: 10.5px; color: var(--muted); margin-top: 6px; }
+  .grp { font-size: 11px; color: var(--muted); margin: 10px 4px 6px; }
+  .sess { padding: 10px 12px; border-radius: 12px; cursor: pointer; margin-bottom: 6px; border: 1px solid var(--border); }
+  .sess:hover { background: #f2f7fc; }
+  .sess .t { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sess .d { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  @media (max-width: 640px) {
+    .bubble, .entries, .follow { max-width: 94%; }
+    .bubble { font-size: 13.5px; }
+    .drawer { width: 82vw; }
+    .w-row { align-items: flex-start; }
+    .avatar { width: 50px; height: 50px; }
+    .chips { flex-wrap: nowrap; overflow-x: auto; }
+    .topic b { font-size: 12.5px; }
+    .topic i { font-size: 10.5px; }
+    .sos { font-size: 11px; padding: 3px 9px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AI便民查询就诊助手<small>北京 · 医院资源 · 科室医生 · 官方挂号入口</small></div>
+  <span class="model-badge" title="推理方式：规则推理引擎（不依赖大模型内部知识回答医院事实）｜联网检索：博查AI Web Search + Tavily Search API｜本标识不含任何密钥">演示 <b>规则推理引擎</b> · 联网检索 <b>博查AI + Tavily</b></span>
+  <span class="sos">紧急情况请立即拨打 120</span>
+  <div class="spacer"></div>
+  <button class="hbtn" id="histBtn" type="button">历史记录</button>
+  <button class="hbtn" id="resetBtn" type="button">重置会话</button>
+</header>
+
+<main id="main"><div class="wrap" id="chat">
+  <div class="welcome" id="welcomeCard">
+    <div class="w-row">
+      <div class="avatar" aria-hidden="true">
+        <svg viewBox="0 0 96 96" width="100%" height="100%">
+          <defs>
+            <linearGradient id="avbg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#e8f1fa" />
+              <stop offset="1" stop-color="#c6ddf2" />
+            </linearGradient>
+          </defs>
+          <circle cx="48" cy="48" r="48" fill="url(#avbg)" />
+          <!-- 颈部 -->
+          <rect x="43.5" y="55" width="9" height="11" rx="3" fill="#f3c9a4" />
+          <rect x="43.5" y="55" width="9" height="4.5" rx="2" fill="#e6b48c" />
+          <!-- 白色护士服（肩与身） -->
+          <path d="M22 96 C22 76 31 66 41 64 L48 76 L55 64 C65 66 74 76 74 96 Z" fill="#fdfdfd" stroke="#d8e4ef" stroke-width="1" />
+          <!-- 淡蓝领口 V -->
+          <path d="M41 64 L48 76 L55 64" fill="none" stroke="#7fa8d0" stroke-width="2.2" stroke-linecap="round" />
+          <!-- 胸前口袋 + 淡蓝十字（护士标识） -->
+          <rect x="55" y="82" width="11" height="9" rx="1.5" fill="#eef5fb" stroke="#c9dcee" stroke-width="1" />
+          <path d="M60.5 84 L60.5 89 M58 86.5 L63 86.5" stroke="#5B8EC7" stroke-width="1.6" stroke-linecap="round" />
+          <!-- 手持病历夹（画面左侧） -->
+          <circle cx="25.5" cy="80" r="3.4" fill="#f3c9a4" />
+          <rect x="17" y="66" width="15" height="18" rx="2" fill="#ffffff" stroke="#c9dcee" stroke-width="1.2" />
+          <rect x="21" y="64" width="7" height="4" rx="1.5" fill="#7fa8d0" />
+          <path d="M20 72 L29 72 M20 76 L29 76 M20 80 L26 80" stroke="#a9c6e4" stroke-width="1.4" stroke-linecap="round" />
+          <!-- 脸 -->
+          <circle cx="48" cy="40" r="17.5" fill="#f6d0ac" />
+          <!-- 头发（耳侧短发） -->
+          <path d="M30.5 38 C30.5 27 38 21 48 21 C58 21 65.5 27 65.5 38 C65.5 40.5 64 41 63.5 39.5 C62 33.5 57.5 29.5 48 29.5 C38.5 29.5 34 33.5 32.5 39.5 C32 41 30.5 40.5 30.5 38 Z" fill="#4a3b2c" />
+          <!-- 护士帽（白色帽体 + 淡蓝帽檐条） -->
+          <path d="M34 24 Q48 12 62 24 L60 20 Q48 10 36 20 Z" fill="#ffffff" stroke="#d8e4ef" stroke-width="1" />
+          <path d="M36.5 21.5 Q48 12.5 59.5 21.5" fill="none" stroke="#5B8EC7" stroke-width="2" stroke-linecap="round" />
+          <!-- 眼睛（略弯，带笑意） -->
+          <path d="M37.6 42 Q40.5 40.2 43.4 42" fill="none" stroke="#2C3E50" stroke-width="1.9" stroke-linecap="round" />
+          <path d="M52.6 42 Q55.5 40.2 58.4 42" fill="none" stroke="#2C3E50" stroke-width="1.9" stroke-linecap="round" />
+          <!-- 眉毛 -->
+          <path d="M37 34.6 Q40.5 33 43.6 34.4" fill="none" stroke="#5d4a35" stroke-width="1.5" stroke-linecap="round" />
+          <path d="M52.4 34.4 Q55.5 33 59 34.6" fill="none" stroke="#5d4a35" stroke-width="1.5" stroke-linecap="round" />
+          <!-- 腮红与微笑 -->
+          <ellipse cx="35.5" cy="48.5" rx="3" ry="1.9" fill="#efae85" opacity=".55" />
+          <ellipse cx="60.5" cy="48.5" rx="3" ry="1.9" fill="#efae85" opacity=".55" />
+          <path d="M42 49.5 Q48 54.5 54 49.5" fill="none" stroke="#bd7040" stroke-width="2.3" stroke-linecap="round" />
+        </svg>
+      </div>
+      <div class="w-text">
+        <h2 id="welcomeTitle">您好，我是护士小护</h2>
+        <p>帮您查北京的医院资源、科室医生和官方挂号入口。点一张话题卡直接开始，或在下方输入您想查的医院或科室。如遇紧急不适，请立即拨打 120。</p>
+      </div>
+    </div>
+    <div class="topics">
+      <button class="topic" type="button" data-q="北京有哪些医院设有卒中中心？">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 21s-7.5-4.6-9.5-9.2C.9 8.6 2.7 5.5 5.7 5.1 7.7 4.8 9.6 5.9 12 8c2.4-2.1 4.3-3.2 6.3-2.9 3 .4 4.8 3.5 3.2 6.7C19.5 16.4 12 21 12 21z" fill="#4A7FBF"/></svg>
+        <span><b>哪些医院有卒中中心？</b><i>北京 · 脑血管急救资源</i></span>
+      </button>
+      <button class="topic" type="button" data-q="北京哪家医院有抗蛇毒血清？">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 3.5c3.2 4.2 5.5 7.3 5.5 10a5.5 5.5 0 1 1-11 0c0-2.7 2.3-5.8 5.5-10z" fill="#5B8EC7"/></svg>
+        <span><b>哪里有抗蛇毒血清？</b><i>特殊资源 · 蛇咬伤救治</i></span>
+      </button>
+      <button class="topic" type="button" data-q="北京协和医院神经科主任医师出诊信息">
+        <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="8" r="4" fill="#4A7FBF"/><path d="M4.5 20c.8-4 4-6 7.5-6s6.7 2 7.5 6" fill="#5B8EC7"/></svg>
+        <span><b>协和神经科主任医师</b><i>职称 · 擅长 · 出诊安排</i></span>
+      </button>
+      <button class="topic" type="button" data-q="北京天坛医院神经内科明天有专家出诊吗？">
+        <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="#4A7FBF" stroke-width="1.8"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" stroke="#4A7FBF" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="14.5" r="1.6" fill="#4A7FBF"/></svg>
+        <span><b>天坛医院明天有专家吗？</b><i>出诊时效 · 排班查询</i></span>
+      </button>
+    </div>
+  </div>
+</div></main>
+
+<div class="inputbar">
+  <div class="chips" id="chips">
+    <button class="chip" type="button">北京有哪些医院设有卒中中心？</button>
+    <button class="chip" type="button">北京哪家医院有抗蛇毒血清？</button>
+    <button class="chip" type="button">协和医院神经科主任医师</button>
+    <button class="chip" type="button">和睦家医院怎么挂号？</button>
+    <button class="chip" type="button">哪些医院有发热门诊？</button>
+  </div>
+  <div class="vbar" id="vbar">
+    <span class="vt" id="vbarText"></span>
+    <button type="button" id="vbarCancel">重说</button>
+    <button type="button" class="ok" id="vbarOk">确认发送</button>
+  </div>
+  <div class="row">
+    <textarea id="input" placeholder="请描述您要查询的医院、科室或资源（Enter 发送）" maxlength="600"></textarea>
+    <button class="mic" id="micBtn" type="button" title="长按说话" aria-label="语音输入">
+      <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-5a3.5 3.5 0 1 0-7 0v5A3.5 3.5 0 0 0 12 15z" fill="currentColor"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 17.5V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+    <button class="send" id="sendBtn" type="button">发送</button>
+  </div>
+  <div class="meta"><span id="who"></span><span id="vHint">浏览器不支持语音识别，请直接打字；当前以官方挂号就诊引导为主，语音识别功能暂时弱化</span><span id="count">0/600</span></div>
+</div>
+
+<div class="foot">本系统仅提供医院资源及便民就医信息查询，不提供疾病诊断与用药建议 · 紧急情况请立即拨打 120<br>信息来自公开渠道检索，就诊安排以医院官方实时公布为准</div>
+
+<div class="drawer-mask" id="mask"></div>
+<aside class="drawer" id="drawer">
+  <header><h3>历史对话</h3><button class="hbtn" id="newBtn" type="button">新会话</button></header>
+  <div class="sess-list" id="sessList">
+    <div class="tip-card">
+      <div class="tip-h">就医小提示</div>
+      <div class="tip-t">查询到医院后，建议通过医院官网、官方 App 或北京 114 预约挂号平台核实出诊安排与号源，本系统不代替医院官方渠道。</div>
+      <div class="tip-s">AI便民查询就诊助手 · 北京</div>
+    </div>
+    <div id="sessGroups"></div>
+  </div>
+</aside>
+
+<script>
+/* 隐藏 Netlify 免费版注入徽章 */
+function killBadge() {
+  document.querySelectorAll('netlify-badge, [id*="netlify" i], [class*="netlify" i], iframe[src*="netlify" i], script[src*="netlify" i]').forEach((e) => e.remove());
+}
+killBadge();
+new MutationObserver(killBadge).observe(document.documentElement, { childList: true, subtree: true });
+let badgeTries = 0;
+const badgeTimer = setInterval(() => { killBadge(); if (++badgeTries > 20) clearInterval(badgeTimer); }, 500);
+
+const $ = (id) => document.getElementById(id);
+const chat = $('chat'), input = $('input'), sendBtn = $('sendBtn');
+let sessions = JSON.parse(localStorage.getItem('hq_sessions') || '[]');
+let session = null;
+
+function save() {
+  localStorage.setItem('hq_sessions', JSON.stringify(sessions.slice(-30)));
+  localStorage.setItem('hq_lastActive', String(Date.now()));
+}
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>'); }
+function now() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+
+const TYPE_LABEL = { official: '医院官网', government: '政府渠道', platform: '第三方平台', media: '公开报道' };
+function typeLabel(t) { return TYPE_LABEL[t] || '待核验'; }
+function typeClass(t) { return TYPE_LABEL[t] ? t : 'other'; }
+
+function newSession(serverId) {
+  session = { id: Date.now(), title: '新对话', time: now(), serverId: serverId || '', messages: [] };
+  sessions.push(session); save(); renderSession(); closeDrawer();
+  const w = $('welcomeCard'); if (w) w.classList.remove('mini');
+}
+
+function renderSession() {
+  chat.querySelectorAll('.msg').forEach((n) => n.remove());
+  for (const m of session.messages) {
+    if (m.role === 'user') addBubble('user', m.content);
+    else addBotMessage(m.content, m.sources, m.code, false, m.conditions, m.hospitals);
+  }
+  main.scrollTop = main.scrollHeight;
+}
+
+function addBubble(role, content) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'user' ? 'user' : role === 'error' ? 'error' : 'bot');
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  b.innerHTML = fmt(content);
+  div.appendChild(b);
+  chat.appendChild(div);
+  main.scrollTop = main.scrollHeight;
+  return div;
+}
+
+/* 长气泡折叠：超过阈值默认收起，点「展开全文」查看 */
+function maybeFold(div) {
+  const b = div.querySelector('.bubble');
+  if (!b || b.scrollHeight <= 200) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'bubble-fold collapsed';
+  div.insertBefore(wrap, b);
+  wrap.appendChild(b);
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'fold-btn'; btn.textContent = '展开全文 ▾';
+  btn.onclick = () => {
+    const isCollapsed = wrap.classList.toggle('collapsed');
+    wrap.classList.toggle('expanded', !isCollapsed);
+    btn.textContent = isCollapsed ? '展开全文 ▾' : '收起 ▴';
+    if (isCollapsed) div.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+  wrap.appendChild(btn);
+}
+
+/* 查询条件结构化小标签：替代逐行文本，一眼看清本轮条件 */
+const COND_LABELS = { city: '地区', hospitalType: '类型', hospitalName: '指定医院', resource: '资源', department: '科室', doctorLevel: '职称', queryDate: '日期' };
+function addCondTags(div, conditions) {
+  if (!conditions) return;
+  const keys = Object.keys(COND_LABELS).filter((k) => conditions[k]);
+  if (!keys.length) return;
+  const row = document.createElement('div');
+  row.className = 'cond-tags';
+  keys.forEach((k) => {
+    const t = document.createElement('span');
+    t.className = 'cond-tag';
+    const label = document.createElement('b');
+    label.textContent = COND_LABELS[k] + ' ';
+    t.appendChild(label);
+    t.appendChild(document.createTextNode(conditions[k]));
+    row.appendChild(t);
+  });
+  div.insertBefore(row, div.firstChild);
+}
+
+/* ★ 这类状态码是「引导/澄清/边界」，本身就是要给患者看的短文，不套卡片 */
+const GUIDE_CODES = ['MEDICAL_BOUNDARY', 'SYMPTOM_BOUNDARY', 'NEEDS_CLARIFICATION', 'SEARCH_FAILED',
+                     'OUT_OF_DEMO_SCOPE', 'ORDINAL_NO_HOSPITAL', 'EMPTY_INPUT', 'INPUT_TOO_LONG',
+                     'RATE_LIMITED', 'SESSION_RESET'];
+const YY114 = 'https://www.114yygh.com';   // 北京 114 预约挂号平台（官方统一入口）
+
+/* 医院入口卡：可点的「挂号/官网」入口，而不是一屏新闻 */
+function buildHospitalCards(cards) {
+  const box = document.createElement('div');
+  box.className = 'hcards';
+  cards.forEach((h) => {
+    const el = document.createElement('div');
+    el.className = 'hcard';
+
+    const top = document.createElement('div');
+    top.className = 'hcard-top';
+    const nm = document.createElement('span'); nm.className = 'hcard-name'; nm.textContent = h.name;
+    const cat = document.createElement('span');
+    cat.className = 'pill ' + (h.category === '民营' ? 'prv' : 'pub');
+    cat.textContent = h.category === '民营' ? '民营' : '公立';
+    const st = document.createElement('span');
+    st.className = 'pill ' + (/待核实|报道/.test(h.status) ? 'warn' : 'st');
+    st.textContent = h.status;
+    top.appendChild(nm); top.appendChild(cat); top.appendChild(st);
+    el.appendChild(top);
+
+    if (h.evidence) {
+      const ev = document.createElement('div'); ev.className = 'hcard-ev';
+      ev.textContent = '核验来源：' + h.evidence;   // 显示来源域名与渠道性质，不展示新闻标题 el.appendChild(ev);
+    }
+
+    const acts = document.createElement('div'); acts.className = 'hcard-acts';
+    const mk = (text, href, primary) => {
+      const a = document.createElement('a');
+      a.className = 'act' + (primary ? ' primary' : '');
+      a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.textContent = text; return a;
+    };
+    // ★ 患者要的是「直接约上号」：北京 114 可直接预约，优先级高于官方预约入口
+    let done = false;
+    if (h.category !== '民营') { acts.appendChild(mk('北京 114 预约挂号', YY114, true)); done = true; }
+    if (h.bookingUrl) acts.appendChild(mk('官方预约挂号入口', h.bookingUrl, !done));
+    if (h.officialUrl) acts.appendChild(mk('进入官方页面', h.officialUrl, !done));
+    el.appendChild(acts);
+
+    const tip = document.createElement('div'); tip.className = 'hcard-ev';
+    tip.textContent = '演示页面暂不能直接唤起小程序；门诊预约也可在微信搜索该院官方公众号或小程序办理。';
+    el.appendChild(tip);
+    box.appendChild(el);
+  });
+  return box;
+}
+
+/* 完整的 ①②③④ 框架与来源链接：折叠保留，满足可核验要求 */
+function buildDetail(text) {
+  const d = document.createElement('div');
+  d.className = 'detail';
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'detail-btn'; btn.textContent = '查看完整依据与核对信息 ▾';
+  const body = document.createElement('div'); body.className = 'detail-body'; body.innerHTML = fmt(text);
+  btn.onclick = () => {
+    const open = d.classList.toggle('open');
+    btn.textContent = open ? '收起完整依据 ▴' : '查看完整依据与核对信息 ▾';
+  };
+  d.appendChild(btn); d.appendChild(body);
+  return d;
+}
+
+/* 机器人回复：① 一句话结论 ② 医院入口卡 ③ 折叠的完整依据 ④ 追问胶囊 */
+function addBotMessage(text, sources, code, withFollowups, conditions, hospitals) {
+  const isCard = !GUIDE_CODES.includes(code);
+  const cards = (isCard && hospitals) ? hospitals.filter((h) => h.officialUrl) : [];
+
+  let intro;
+  if (cards.length) {
+    intro = `为您找到 ${cards.length} 家可就诊的医院。点开卡片即可挂号或进入官方页面。`;
+  } else if (isCard && sources && sources.length) {
+    intro = '这次没有直接识别出医院入口卡，您可以展开下方依据查看原始页面，或换个说法再问我一次。';
+  } else if (isCard) {
+    intro = '这次没有检索到可核验的公开信息。换一种说法，或直接告诉我具体医院名称就好——我不会为了给答案而编造。';
+  } else {
+    intro = text || '';
+  }
+
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  const b = document.createElement('div'); b.className = 'bubble'; b.innerHTML = fmt(intro);
+  div.appendChild(b);
+  chat.appendChild(div);
+  main.scrollTop = main.scrollHeight;
+
+  if (cards.length) div.appendChild(buildHospitalCards(cards));
+  addCondTags(div, conditions);
+  if (text && text !== intro) div.appendChild(buildDetail(text));
+
+  if (withFollowups) {
+    const chips = followupChips(code, sources);
+    if (chips.length) {
+      const f = document.createElement('div');
+      f.className = 'follow';
+      chips.forEach((c) => {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'fchip'; btn.textContent = c;
+        btn.onclick = () => (c === '重新查询' ? resetQuery() : send(c));
+        f.appendChild(btn);
+      });
+      div.appendChild(f);
+    }
+  }
+  main.scrollTop = main.scrollHeight;
+  return div;
+}
+
+/* 按回复类型给出不同的追问胶囊 */
+function followupChips(code, sources) {
+  if (code === 'NEEDS_CLARIFICATION') {
+    return ['北京，公立医院优先', '北京，公立民营均可'];
+  }
+  if (code === 'MEDICAL_BOUNDARY' || code === 'SEARCH_FAILED') return [];
+  if (sources && sources.length) {
+    // 「第一家/第二家」类追问已移除：序数承接在实际使用中会脱离上一轮上下文、给出空结果。
+    // 需要继续追问时，用户直接在输入框带上医院名称即可；此处只保留「重新查询」。
+    return ['重新查询'];
+  }
+  return [];
+}
+
+function addError(text) {
+  chat.querySelectorAll('.msg.error').forEach((n) => { if (n.textContent.trim() === text) n.remove(); });
+  addBubble('error', text);
+}
+
+function setLoading(on) {
+  sendBtn.disabled = on;
+  const old = document.querySelector('.msg.loading');
+  if (old) old.remove();
+  if (on) {
+    const div = document.createElement('div');
+    div.className = 'msg bot loading';
+    div.innerHTML = '<div class="bubble typing"><span></span><span></span><span></span></div>';
+    chat.appendChild(div); main.scrollTop = main.scrollHeight;
+  }
+}
+
+async function send(text) {
+  const msg = (text !== undefined ? text : input.value).trim();
+  if (!msg) { addError('请输入您要查询的内容'); return; }
+  if (msg.length > 600) { addError('输入内容过长，请精简后重试'); return; }
+  if (!session) { newSession(); }
+  addBubble('user', msg);
+  session.messages.push({ role: 'user', content: msg });
+  if (session.title === '新对话') session.title = msg.slice(0, 18);
+  save();
+  input.value = ''; $('count').textContent = '0/600';
+  setLoading(true);
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, sessionId: session.serverId || '' })
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { addError(data.error || '服务繁忙，请稍后重试'); return; }
+    if (data.sessionId) session.serverId = data.sessionId;
+    const w = $('welcomeCard'); if (w) w.classList.add('mini');
+    addBotMessage(data.response || data.error || '暂未获得有效回复', data.sources, data.code, true, data.conditions, data.hospitals);
+    session.messages.push({ role: 'assistant', content: data.response || '', sources: data.sources || [], code: data.code, conditions: data.conditions || null, hospitals: data.hospitals || [] });
+    save();
+  } catch (e) {
+    setLoading(false);
+    addError('网络连接异常，请稍后重试');
+  }
+}
+
+/* 抽屉：按时间分组 */
+function groupOf(timeStr) {
+  const d = new Date(timeStr.replace(' ', 'T'));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const day = new Date(d); day.setHours(0, 0, 0, 0);
+  const diff = Math.round((today - day) / 86400000);
+  if (diff <= 0) return '今天';
+  if (diff === 1) return '昨天';
+  if (diff <= 30) return '近30天';
+  return '更早';
+}
+
+function renderDrawer() {
+  const box = $('sessGroups'); box.innerHTML = '';
+  const order = ['今天', '昨天', '近30天', '更早'];
+  const groups = { '今天': [], '昨天': [], '近30天': [], '更早': [] };
+  [...sessions].reverse().forEach((s) => groups[groupOf(s.time)].push(s));
+  for (const name of order) {
+    const arr = groups[name];
+    if (!arr.length) continue;
+    const h = document.createElement('div'); h.className = 'grp'; h.textContent = name; box.appendChild(h);
+    arr.forEach((s) => {
+      const d = document.createElement('div'); d.className = 'sess';
+      d.innerHTML = '<div class="t"></div><div class="d"></div>';
+      d.querySelector('.t').textContent = s.title;
+      d.querySelector('.d').textContent = s.time + ' · ' + s.messages.length + ' 条';
+      d.onclick = () => { session = s; renderSession(); closeDrawer(); };
+      box.appendChild(d);
+    });
+  }
+}
+function openDrawer() { renderDrawer(); $('drawer').classList.add('open'); $('mask').classList.add('open'); }
+function closeDrawer() { $('drawer').classList.remove('open'); $('mask').classList.remove('open'); }
+
+/* 重新查询：清空本地会话与服务端条件，回到新一轮查询页（不发送检索请求） */
+async function resetQuery() {
+  let newServerId = '';
+  try {
+    const r = await fetch('/api/session/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: (session && session.serverId) || '' })
+    });
+    const d = await r.json();
+    if (d && d.sessionId) newServerId = d.sessionId;
+  } catch (e) { /* 网络异常时仅做本地重置 */ }
+  input.value = ''; $('count').textContent = '0/600';
+  newSession(newServerId);
+  addBubble('bot', '好的，已清空上一轮查询。请告诉我您想查询的医院、科室或资源。');
+}
+
+sendBtn.onclick = () => send();
+input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+input.addEventListener('input', () => { $('count').textContent = input.value.length + '/600'; });
+document.querySelectorAll('.chip').forEach((c) => (c.onclick = () => send(c.textContent)));
+document.querySelectorAll('.topic').forEach((c) => (c.onclick = () => send(c.dataset.q)));
+$('histBtn').onclick = openDrawer;
+$('resetBtn').onclick = () => resetQuery();   /* 重置：清空检索条件与当前对话，换一次新的咨询 */
+$('mask').onclick = closeDrawer;
+$('newBtn').onclick = () => newSession();
+
+/* ================= 语音输入 =================
+   长按话筒说话 → 松开即转文字 → 患者点「确认发送」才发出。
+   稳定性策略：不支持 / 无权限 / 网络不通，一律降级为纯打字，绝不卡住界面。 */
+const micBtn = $('micBtn'), vbar = $('vbar'), vbarText = $('vbarText'), vHint = $('vHint');
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false, voiceText = '';
+
+function stopVoice() {
+  listening = false;
+  if (micBtn) micBtn.classList.remove('on');
+  try { rec && rec.stop(); } catch (e) { /* 已停止 */ }
+}
+
+if (SR) {
+  try {
+    rec = new SR();
+    rec.lang = 'zh-CN';
+    rec.interimResults = true;
+    rec.continuous = false;
+    /* 语音已弱化：不再显示话筒入口，保留纯打字输入（说明见输入区底部） */
+    rec.onresult = (e) => {
+      voiceText = [...e.results].map((r) => r[0].transcript).join('');
+      vbarText.textContent = voiceText || '正在聆听…';
+      vbar.classList.add('show');
+    };
+    rec.onerror = (e) => {
+      stopVoice();
+      const hard = (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'network');
+      vHint.textContent = {
+        'not-allowed': '麦克风权限未开启，请允许后重试（打字不受影响）',
+        'service-not-allowed': '当前浏览器不支持语音识别，请直接打字',
+        'network': '语音服务网络不可达，请直接打字',
+        'no-speech': '没有听清，请再说一次',
+      }[e.error] || '语音识别暂不可用，请直接打字';
+      if (hard) micBtn.classList.remove('show');
+      vbar.classList.remove('show');
+    };
+    rec.onend = () => { stopVoice(); vbarText.textContent = voiceText || ''; };
+  } catch (e) { vHint.textContent = '语音功能不可用，请直接打字'; }
+} else {
+  /* 不支持时同样不显示话筒，也不覆盖底部说明文案 */
+}
+
+const startVoice = () => {
+  if (!rec || listening) return;
+  voiceText = '';
+  vbarText.textContent = '正在聆听…';
+  vbar.classList.add('show');
+  try { rec.start(); listening = true; micBtn.classList.add('on'); }
+  catch (e) { vHint.textContent = '语音启动失败，请直接打字'; vbar.classList.remove('show'); }
+};
+
+micBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); startVoice(); });
+micBtn.addEventListener('pointerup', (e) => { e.preventDefault(); if (listening) stopVoice(); });
+micBtn.addEventListener('pointercancel', () => { if (listening) stopVoice(); });
+micBtn.addEventListener('pointerleave', () => { if (listening) stopVoice(); });
+micBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+$('vbarOk').onclick = () => {
+  const t = (voiceText || '').trim();
+  vbar.classList.remove('show'); voiceText = '';
+  if (t) send(t); else vHint.textContent = '没有识别到内容，请再说一次';
+};
+$('vbarCancel').onclick = () => { voiceText = ''; vbar.classList.remove('show'); };
+
+/* ★ 区分「返回」与「重新打开」：
+   - 30 分钟内重载（例如从挂号页/官网返回）→ 恢复当前会话，不丢上下文；
+   - 超过 30 分钟再打开，视为一次新的就诊咨询 → 新建会话，不再堆着上次的问题；
+   - 任何时候用户点「重置会话」，立即新建。 */
+const IDLE_LIMIT = 30 * 60 * 1000;
+const lastActive = Number(localStorage.getItem('hq_lastActive') || 0);
+if (sessions.length && lastActive && Date.now() - lastActive < IDLE_LIMIT) {
+  session = sessions[sessions.length - 1];
+  renderSession();
+  if (session.messages && session.messages.length) {
+    const w = $('welcomeCard');
+    if (w) w.classList.add('mini');
+  }
+} else {
+  newSession();
+}
+</script>
+</body>
+</html>

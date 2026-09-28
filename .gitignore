@@ -1,0 +1,17 @@
+# Local Netlify folder
+.netlify
+
+# Environment secrets
+.env
+.env.local
+
+# Editor
+.obsidian/
+
+# Logs
+*.log
+server-out.log
+server-err.log
+
+# Dependencies
+node_modules/
