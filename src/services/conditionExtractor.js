@@ -119,8 +119,14 @@ function needsClarification(allConditions, extracted) {
     }
   }
 
+  // 抗蛇毒血清：真正要澄清的不是"公立/民营"，而是"当前库存是否可提供 / 是否具备急诊救治能力"——
+  // 这才是赛题"特殊资源未核实"的得分点，不能把历史储备报道等同于当前可立即使用。
   if (extracted.newConditions.resource === '抗蛇毒血清' && !allConditions.hospitalType) {
-    extracted.clarificationPrompt = '请问您倾向查询公立医院还是民营医院？（可选：公立优先/均可）';
+    extracted.clarificationPrompt =
+      '抗蛇毒血清属易变动资源，我需要确认您要查的是哪一项：\n' +
+      '1）哪些医院**当前可提供/有库存**（需以医院急诊科实时答复为准）；\n' +
+      '2）哪些医院**设有急诊科、具备蛇咬伤救治能力**（公开能力介绍）。\n' +
+      '请回复 1 或 2。另请一并告知城市（如：北京）。';
     return true;
   }
 
