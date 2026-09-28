@@ -182,6 +182,27 @@ function buildEvidenceSection(sources, queryTime) {
   return out;
 }
 
+// 来源时效：取「距今天数」最大的一条，用于超过阈值时给出过期提醒（赛题进阶1 前一句）
+function sourceMaxAgeDays(sources) {
+  let max = 0;
+  for (const s of sources || []) {
+    if (!s.publishedTime) continue;
+    const t = Date.parse(s.publishedTime);
+    if (Number.isNaN(t)) continue;
+    const days = Math.floor((Date.now() - t) / 86400000);
+    if (days > max) max = days;
+  }
+  return max;
+}
+
+// 易变信息：排班/号源/特殊资源一类，过期提醒必须给；普通地址、官网入口不强求
+function isVolatileQuery(conditions) {
+  const c = conditions || {};
+  if (c.resource === '抗蛇毒血清') return true;
+  if (/排班|出诊|号源|挂号/.test(c.resource || '')) return true;
+  return !!(c.doctorLevel || c.queryDate);
+}
+
 function buildTipsSection(conditions, sources) {
   let out = `【④ 使用提示】\n`;
 
@@ -197,6 +218,12 @@ function buildTipsSection(conditions, sources) {
   } else {
     out += `· 上述为医院的公开能力介绍，不等于当前服务状态；就诊前请以医院最新公布或确认的信息为准。\n`;
     out += `· 挂号预约建议走官方渠道：北京114预约挂号平台、医院官方公众号或 App。\n`;
+  }
+
+  // ★ 过期提醒（赛题进阶1）：来源更新时间距今超 180 天时提示，易变信息必给
+  const maxAge = sourceMaxAgeDays(sources);
+  if (sources.length && maxAge > 180 && isVolatileQuery(conditions)) {
+    out += `· 时效提醒：本次引用来源的更新时间距今已超过 ${maxAge} 天（>180 天），信息可能已过时；排班、号源、特殊资源请以医院最新公布或电话确认为准。\n`;
   }
 
   if (sources.length) {
