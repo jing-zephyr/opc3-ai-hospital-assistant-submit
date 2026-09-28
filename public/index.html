@@ -125,6 +125,13 @@
   .detail-btn { font-size: 11.5px; color: var(--blue-dark); background: none; border: 1px dashed #c9dcee; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
   .detail-body { display: none; margin-top: 8px; background: #fbfdff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 12px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; color: var(--text); }
   .detail.open .detail-body { display: block; }
+  /* ★ 医院对比面板（进阶需求2）：对比仅围绕地区/院区/公开资源，不做医疗质量排名 */
+  .cmp-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 11.5px; white-space: nowrap; }
+  table.cmp th { background: #eef4fb; color: var(--blue-dark); font-weight: 600; text-align: left; padding: 6px 8px; border: 1px solid var(--border); }
+  table.cmp td { padding: 6px 8px; border: 1px solid var(--border); color: var(--text); }
+  .cmp-note { font-size: 10.5px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+
   /* ★ 语音输入 */
   .mic { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border); background: #f7fbff; color: var(--blue-dark); display: none; align-items: center; justify-content: center; cursor: pointer; touch-action: none; user-select: none; -webkit-tap-highlight-color: transparent; }
   .mic.show { display: inline-flex; }
@@ -320,7 +327,7 @@ function renderSession() {
   chat.querySelectorAll('.msg').forEach((n) => n.remove());
   for (const m of session.messages) {
     if (m.role === 'user') addBubble('user', m.content);
-    else addBotMessage(m.content, m.sources, m.code, false, m.conditions, m.hospitals);
+    else addBotMessage(m.content, m.sources, m.code, false, m.conditions, m.hospitals, m.compareData);
   }
   main.scrollTop = main.scrollHeight;
 }
@@ -444,8 +451,40 @@ function buildDetail(text) {
   return d;
 }
 
+/* ★ 医院对比表（进阶需求2）：后端已生成 compareData，此处负责渲染 */
+function buildCompareTable(rows) {
+  if (!rows || rows.length < 2) return null;
+  const d = document.createElement('div');
+  d.className = 'detail';
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'detail-btn';
+  btn.textContent = `对比这 ${rows.length} 家医院 ▾`;
+  const body = document.createElement('div'); body.className = 'detail-body';
+  const wrap = document.createElement('div'); wrap.className = 'cmp-wrap';
+  const tbl = document.createElement('table'); tbl.className = 'cmp';
+  const cols = ['医院名称', '医院类别', '来源类型', '匹配情况', '时效状态'];
+  const thead = document.createElement('tr');
+  cols.forEach((c) => { const th = document.createElement('th'); th.textContent = c; thead.appendChild(th); });
+  tbl.appendChild(thead);
+  rows.forEach((r) => {
+    const tr = document.createElement('tr');
+    cols.forEach((c) => { const td = document.createElement('td'); td.textContent = r[c] || '未查到'; tr.appendChild(td); });
+    tbl.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  const note = document.createElement('div'); note.className = 'cmp-note';
+  note.textContent = '对比仅围绕地区、院区、公开资源与服务信息，不构成医疗质量排名；各项以医院官方最新公布为准。';
+  body.appendChild(wrap); body.appendChild(note);
+  btn.onclick = () => {
+    const open = d.classList.toggle('open');
+    btn.textContent = open ? '收起对比 ▴' : `对比这 ${rows.length} 家医院 ▾`;
+  };
+  d.appendChild(btn); d.appendChild(body);
+  return d;
+}
+
 /* 机器人回复：① 一句话结论 ② 医院入口卡 ③ 折叠的完整依据 ④ 追问胶囊 */
-function addBotMessage(text, sources, code, withFollowups, conditions, hospitals) {
+function addBotMessage(text, sources, code, withFollowups, conditions, hospitals, compareData) {
   const isCard = !GUIDE_CODES.includes(code);
   const cards = (isCard && hospitals) ? hospitals.filter((h) => h.officialUrl) : [];
 
@@ -468,6 +507,8 @@ function addBotMessage(text, sources, code, withFollowups, conditions, hospitals
   main.scrollTop = main.scrollHeight;
 
   if (cards.length) div.appendChild(buildHospitalCards(cards));
+  const cmp = buildCompareTable(compareData);
+  if (cmp) div.appendChild(cmp);
   addCondTags(div, conditions);
   if (text && text !== intro) div.appendChild(buildDetail(text));
 
@@ -542,8 +583,8 @@ async function send(text) {
     if (!res.ok) { addError(data.error || '服务繁忙，请稍后重试'); return; }
     if (data.sessionId) session.serverId = data.sessionId;
     const w = $('welcomeCard'); if (w) w.classList.add('mini');
-    addBotMessage(data.response || data.error || '暂未获得有效回复', data.sources, data.code, true, data.conditions, data.hospitals);
-    session.messages.push({ role: 'assistant', content: data.response || '', sources: data.sources || [], code: data.code, conditions: data.conditions || null, hospitals: data.hospitals || [] });
+    addBotMessage(data.response || data.error || '暂未获得有效回复', data.sources, data.code, true, data.conditions, data.hospitals, data.compareData);
+    session.messages.push({ role: 'assistant', content: data.response || '', sources: data.sources || [], code: data.code, conditions: data.conditions || null, hospitals: data.hospitals || [], compareData: data.compareData || null });
     save();
   } catch (e) {
     setLoading(false);
